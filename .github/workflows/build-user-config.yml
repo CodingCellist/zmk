@@ -92,28 +92,37 @@ jobs:
         run: west init -l ${{ inputs.config_path }}
 
       - name: West Update
-        run: west update
+        run: |
+          cd $( dirname ${{ inputs.config_path }} )
+          west update
 
       - name: West Zephyr export
-        run: west zephyr-export
+        run: |
+          cd $( dirname ${{ inputs.config_path }} )
+          west zephyr-export
 
       - name: West Build (${{ env.display_name }})
         shell: sh -x {0}
-        run: west build -s zmk/app -b ${{ matrix.board }} -- -DZMK_CONFIG=${GITHUB_WORKSPACE}/${{ inputs.config_path }} ${{ env.extra_cmake_args }} ${{ matrix.cmake-args }}
+        run: |
+          cd $( dirname ${{ inputs.config_path }} )
+          west build -s zmk/app -b ${{ matrix.board }} -- -DZMK_CONFIG=${GITHUB_WORKSPACE}/${{ inputs.config_path }} ${{ env.extra_cmake_args }} ${{ matrix.cmake-args }}
 
       - name: ${{ env.display_name }} Kconfig file
-        run: grep -v -e "^#" -e "^$" build/zephyr/.config | sort
+        run: |
+          cd $( dirname ${{ inputs.config_path }} )
+          grep -v -e "^#" -e "^$" build/zephyr/.config | sort
 
       - name: Rename artifacts
         shell: sh -x {0}
         run: |
-          mkdir build/artifacts
+          cd $( dirname ${{ inputs.config_path }} )
+          mkdir -p "${GITHUB_WORKSPACE}/build/artifacts"
           if [ -f build/zephyr/zmk.uf2 ]
           then
-            cp build/zephyr/zmk.uf2 "build/artifacts/${{ env.artifact_name }}.uf2"
+            cp build/zephyr/zmk.uf2 "${GITHUB_WORKSPACE}/build/artifacts/${{ env.artifact_name }}.uf2"
           elif [ -f build/zephyr/zmk.${{ inputs.fallback_binary }} ]
           then
-            cp build/zephyr/zmk.${{ inputs.fallback_binary }} "build/artifacts/${{ env.artifact_name }}.${{ inputs.fallback_binary }}"
+            cp build/zephyr/zmk.${{ inputs.fallback_binary }} "${GITHUB_WORKSPACE}/build/artifacts/${{ env.artifact_name }}.${{ inputs.fallback_binary }}"
           fi
 
       - name: Archive (${{ env.display_name }})
