@@ -19,8 +19,8 @@ on:
         required: false
         type: string
       archive_name:
-        description: 'Archive output file name'
-        default: 'firmware'
+        description: "Archive output file name"
+        default: "firmware"
         required: false
         type: string
 
@@ -39,8 +39,8 @@ jobs:
 
       - name: Fetch Build Matrix
         run: |
-          echo "build_matrix=$(yaml2json ${{ inputs.build_matrix_path }} | jq -c .)" >> $GITHUB_ENV
-          yaml2json ${{ inputs.build_matrix_path }} | jq
+          echo "build_matrix=$(yaml2json '${{ inputs.build_matrix_path }}' | jq -c .)" >> $GITHUB_ENV
+          yaml2json "${{ inputs.build_matrix_path }}" | jq
 
   build:
     runs-on: ubuntu-latest
@@ -54,18 +54,13 @@ jobs:
     steps:
       - name: Prepare variables
         shell: sh -x {0}
+        env:
+          shield: ${{ matrix.shield }}
         run: |
-          if [ -n "${{ matrix.shield }}" ]
-          then
-            echo "extra_cmake_args=-DSHIELD=\"${{ matrix.shield }}\"" >> $GITHUB_ENV
-            echo "artifact_name=${{ matrix.shield }}-${{ matrix.board }}-zmk" >> $GITHUB_ENV
-            echo "display_name=${{ matrix.shield }} - ${{ matrix.board }}" >> $GITHUB_ENV
-          else
-            echo "extra_cmake_args=" >> $GITHUB_ENV
-            echo "artifact_name=${{ matrix.board }}-zmk" >> $GITHUB_ENV
-            echo "display_name=${{ matrix.board }}" >> $GITHUB_ENV
-          fi
           echo "zephyr_version=${ZEPHYR_VERSION}" >> $GITHUB_ENV
+          echo "extra_cmake_args=${shield:+-DSHIELD=\"$shield\"}" >> $GITHUB_ENV
+          echo "display_name=${shield:+$shield - }${{ matrix.board }}" >> $GITHUB_ENV
+          echo "artifact_name=${shield:+$shield-}${{ matrix.board }}-zmk" >> $GITHUB_ENV
 
       - name: Checkout
         uses: actions/checkout@v3
@@ -89,27 +84,27 @@ jobs:
             ${{ runner.os }}-
 
       - name: West Init
-        run: west init -l ${{ inputs.config_path }}
+        run: west init -l "${{ inputs.config_path }}"
 
       - name: West Update
         run: |
-          cd $( dirname ${{ inputs.config_path }} )
+          cd $( dirname "${{ inputs.config_path }}" )
           west update
 
       - name: West Zephyr export
         run: |
-          cd $( dirname ${{ inputs.config_path }} )
+          cd $( dirname "${{ inputs.config_path }}" )
           west zephyr-export
 
       - name: West Build (${{ env.display_name }})
         shell: sh -x {0}
         run: |
-          cd $( dirname ${{ inputs.config_path }} )
-          west build -s zmk/app -b ${{ matrix.board }} -- -DZMK_CONFIG=${GITHUB_WORKSPACE}/${{ inputs.config_path }} ${{ env.extra_cmake_args }} ${{ matrix.cmake-args }}
+          cd $( dirname "${{ inputs.config_path }}" )
+          west build -s zmk/app -b "${{ matrix.board }}" -- -DZMK_CONFIG="${GITHUB_WORKSPACE}/${{ inputs.config_path }}" ${{ env.extra_cmake_args }} ${{ matrix.cmake-args }}
 
       - name: ${{ env.display_name }} Kconfig file
         run: |
-          cd $( dirname ${{ inputs.config_path }} )
+          cd $( dirname "${{ inputs.config_path }}" )
           grep -v -e "^#" -e "^$" build/zephyr/.config | sort
 
       - name: Rename artifacts
@@ -122,7 +117,7 @@ jobs:
             cp build/zephyr/zmk.uf2 "${GITHUB_WORKSPACE}/build/artifacts/${{ env.artifact_name }}.uf2"
           elif [ -f build/zephyr/zmk.${{ inputs.fallback_binary }} ]
           then
-            cp build/zephyr/zmk.${{ inputs.fallback_binary }} "${GITHUB_WORKSPACE}/build/artifacts/${{ env.artifact_name }}.${{ inputs.fallback_binary }}"
+            cp "build/zephyr/zmk.${{ inputs.fallback_binary }}" "${GITHUB_WORKSPACE}/build/artifacts/${{ env.artifact_name }}.${{ inputs.fallback_binary }}"
           fi
 
       - name: Archive (${{ env.display_name }})
